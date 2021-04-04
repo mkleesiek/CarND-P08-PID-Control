@@ -1,30 +1,33 @@
 #include "PID.h"
+#include <cmath>
 
-/**
- * TODO: Complete the PID class. You may add any additional desired functions.
- */
+double PID::SigmoidFunc(double value)
+{
+//  return 2.0 / (1.0 + exp(-value)) - 1.0;
+  return tanh(value);
+}
 
-PID::PID() {}
+void PID::Init(double Kp, double Ki, double Kd) {
+  // Initialize PID coefficients
+  m_Kp = Kp;
+  m_Ki = Ki;
+  m_Kd = Kd;
 
-PID::~PID() {}
-
-void PID::Init(double Kp_, double Ki_, double Kd_) {
-  /**
-   * TODO: Initialize PID coefficients (and errors, if needed)
-   */
-
+  // and errors
+  m_p_error = 0.0;
+  m_d_error = 0.0;
+  m_i_error = 0.0;
 }
 
 void PID::UpdateError(double cte) {
-  /**
-   * TODO: Update PID errors based on cte.
-   */
-
+  // Update PID errors based on cte
+  const double cte_previous = m_p_error;
+  m_p_error = cte;
+  m_d_error = cte - cte_previous;
+  m_i_error += cte;
 }
 
-double PID::TotalError() {
-  /**
-   * TODO: Calculate and return the total error
-   */
-  return 0.0;  // TODO: Add your total error calc here!
+double PID::TotalError() const {
+  // Calculate and return the total error
+  return m_Kp * m_p_error + m_Kd * m_d_error + m_Ki * m_i_error;
 }

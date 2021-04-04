@@ -1,4 +1,7 @@
 .vscode
+.idea
 build
 tags
 .editorconfig
+cmake-build-debug
+cmake-build-release

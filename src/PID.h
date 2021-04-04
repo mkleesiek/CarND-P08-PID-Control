@@ -2,22 +2,24 @@
 #define PID_H
 
 class PID {
- public:
+public:
+  static double SigmoidFunc(double value);
+
   /**
    * Constructor
    */
-  PID();
+  PID() = default;
 
   /**
    * Destructor.
    */
-  virtual ~PID();
+  virtual ~PID() = default;
 
   /**
    * Initialize PID.
-   * @param (Kp_, Ki_, Kd_) The initial PID coefficients
+   * @param (Kp, Ki, Kd) The initial PID coefficients
    */
-  void Init(double Kp_, double Ki_, double Kd_);
+  void Init(double Kp, double Ki, double Kd);
 
   /**
    * Update the PID error variables given cross track error.
@@ -29,22 +31,22 @@ class PID {
    * Calculate the total PID error.
    * @output The total PID error
    */
-  double TotalError();
+  double TotalError() const;
 
- private:
+private:
   /**
    * PID Errors
    */
-  double p_error;
-  double i_error;
-  double d_error;
+  double m_p_error = 0.0;
+  double m_i_error = 0.0;
+  double m_d_error = 0.0;
 
   /**
    * PID Coefficients
    */ 
-  double Kp;
-  double Ki;
-  double Kd;
+  double m_Kp = 0.0;
+  double m_Ki = 0.0;
+  double m_Kd = 0.0;
 };
 
 #endif  // PID_H
