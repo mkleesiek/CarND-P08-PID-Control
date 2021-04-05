@@ -1,10 +1,9 @@
 #ifndef PID_H
 #define PID_H
 
+#include <cstddef>
 class PID {
 public:
-  static double SigmoidFunc(double value);
-
   /**
    * Constructor
    */
@@ -33,6 +32,8 @@ public:
    */
   double TotalError() const;
 
+  double Output(double min = -1.0, double max = 1.0) const;
+
 private:
   /**
    * PID Errors
@@ -47,6 +48,15 @@ private:
   double m_Kp = 0.0;
   double m_Ki = 0.0;
   double m_Kd = 0.0;
+
+  /**
+   * Twiddle Deltas
+   */
+  double m_delta_Kp = 0.0;
+  double m_delta_Ki = 0.0;
+  double m_delta_Kd = 0.0;
+
+  size_t m_iteration = 0;
 };
 
 #endif  // PID_H

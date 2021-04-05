@@ -37,7 +37,7 @@ int main() {
    * Initialize the PID controller.
    */
   PID pid_steering;
-  pid_steering.Init(1.0, 1.0, 1.0);
+  pid_steering.Init(0.12, 0.0005, 0.8);
 
   h.onMessage([&pid_steering](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode /*opCode*/) {
@@ -65,8 +65,7 @@ int main() {
            */
 
           pid_steering.UpdateError(cte);
-          double total_error = pid_steering.TotalError();
-          double steer_value = PID::SigmoidFunc(-total_error);
+          double steer_value = pid_steering.Output();
 
            /**
            * NOTE: Feel free to play around with the throttle and speed.
