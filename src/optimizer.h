@@ -2,21 +2,37 @@
 
 #include <vector>
 #include <numeric>
-#include <random>
+#include <cassert>
 
+/**
+ * Function minimizer using the "Twiddle" algorithm.
+ * @tparam ObjectiveT Functor type of the objective function to be evaluated.
+ */
 template<typename ObjectiveT>
 class TwiddleOptimizer {
 public:
+  /**
+   * Constructor.
+   * @param objective Reference to the objective function functor.
+   */
   TwiddleOptimizer(ObjectiveT& objective);
+  /**
+   * Destructor.
+   */
   virtual ~TwiddleOptimizer() = default;
 
-  bool Minimize(std::vector<double>& params, double stepsize = 0.2, double threshold = 0.01);
+  /**
+   * Find the objective function minimum, using the "Twiddle" algorithm.
+   * @param[in,out] params Initial values for the objective function arguments.
+   * @param deltas Initial step sizes regarding @p params for probing the function parameter space.
+   * @param threshold The threshold defining the break condition for the minimizer.
+   * @return Returns true when the sum of parameter deltas has been reduced below the @p threshold.
+   *   The final function argument values can be read from @p params.
+   */
+  bool Minimize(std::vector<double>& params, std::vector<double> deltas, double threshold = 0.001);
 
 private:
   ObjectiveT& m_objective;
-  std::vector<double> m_params;
-  std::vector<double> m_deltas;
-  double m_best_error = 0.0;
 };
 
 template<typename ObjectiveT>
@@ -25,51 +41,51 @@ TwiddleOptimizer<ObjectiveT>::TwiddleOptimizer(ObjectiveT& objective)
 { }
 
 template<typename ObjectiveT>
-bool TwiddleOptimizer<ObjectiveT>::Minimize(std::vector<double>& params, double stepsize, double threshold)
+bool TwiddleOptimizer<ObjectiveT>::Minimize(std::vector<double>& params, std::vector<double> deltas, double threshold)
 {
-  std::vector<double> deltas(params.size());
-  std::transform(params.begin(), params.end(), deltas.begin(), [&](double param) {
-    return stepsize * param;
-  });
+  assert(!params.empty() && params.size() == deltas.size()
+    && "Number of function arguments must not be zero and must match the number of deltas.");
 
   double best_error = m_objective(params);
 
-  // initialize random number generator
-  std::default_random_engine generator{std::random_device{}()};
-  std::uniform_int_distribution<size_t> param_dist{0, params.size()-1};
-
   while (std::accumulate(deltas.begin(), deltas.end(), 0.0) > threshold) {
 
-    // randomly choose the next parameter to adjust
-    size_t i = param_dist(generator);
-    params[i] += deltas[i];
-    double error = m_objective(params);
+    for (size_t i = 0; i < params.size(); i++) {
 
-    // there was some improvement
-    if (error < best_error)
-    {
-      best_error = error;
-      deltas[i] *= 1.1;
-    }
-    // there was no improvement
-    else
-    {
-      // go into the other direction
-      params[i] -= 2.0 * deltas[i];
-      error = m_objective(params);
+      if (deltas[i] == 0.0)
+      {
+        continue;
+      }
+
+      params[i] += deltas[i];
+      double error = m_objective(params);
 
       // there was some improvement
       if (error < best_error)
       {
-          best_error = error;
-          deltas[i] *= 1.05;
+        best_error = error;
+        deltas[i] *= 1.1;
       }
       // there was no improvement
       else
       {
-          params[i] += deltas[i];
-          // since there was no improvement in either direction, the stepsize might be too big:
-          deltas[i] *= 0.95;
+        // go into the other direction
+        params[i] -= 2.0 * deltas[i];
+        error = m_objective(params);
+
+        // there was some improvement
+        if (error < best_error)
+        {
+            best_error = error;
+            deltas[i] *= 1.1;
+        }
+        // there was no improvement
+        else
+        {
+            params[i] += deltas[i];
+            // since there was no improvement in either direction, the step size might be too big:
+            deltas[i] *= 0.9;
+        }
       }
     }
   }

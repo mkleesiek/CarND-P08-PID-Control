@@ -8,8 +8,7 @@ set(CXX_FLAGS "-Wall -Wextra")
 set(CMAKE_CXX_FLAGS "${CXX_FLAGS}")
 
 set(sources
-  src/PID.cpp
-  src/runner.cpp
+        src/driver.cpp
   src/main.cpp
 )
 

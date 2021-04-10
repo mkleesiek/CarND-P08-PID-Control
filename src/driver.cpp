@@ -1,4 +1,4 @@
-#include "runner.h"
+#include "driver.h"
 #include "json.hpp"
 #include <iostream>
 #include <string>
@@ -9,23 +9,6 @@ using namespace std;
 
 namespace
 {
-  double minMax(double value, double min, double max)
-  {
-    value = std::min(value, max);
-    value = std::max(value, min);
-    return value;
-  }
-
-  double errorFunction(double value, double min, double max)
-  {
-      return (max - min) * (erf(value) + 1.0) / 2.0 + min;
-  }
-
-  double gaussianFunction(double value, double min, double max)
-  {
-      return (max - min) * exp(-value*value / 2.0) + min;
-  }
-
   // Checks if the SocketIO event has JSON data.
   // If there is data the JSON object in string format will be returned,
   // else the empty string "" will be returned.
@@ -46,35 +29,36 @@ namespace
   }
 }
 
-void Runner::ConfigureSteeringPID(double Kp, double Ki, double Kd)
+Driver::Driver(int port)
+: m_port{port}
+{
+}
+
+void Driver::ConfigureSteeringPID(double Kp, double Ki, double Kd)
 {
   m_pid_steering.Init(Kp, Ki, Kd);
 }
 
-void Runner::ConfigureThrottlePID(double Kp, double Ki, double Kd)
+void Driver::ConfigureThrottlePID(double Kp, double Ki, double Kd)
 {
   m_pid_throttle.Init(Kp, Ki, Kd);
 }
 
-void Runner::SetMaxIterations(size_t max_iterations)
+void Driver::SetMaxIterations(size_t max_iterations)
 {
-  m_max_iterations = max_iterations;
+  m_max_iterations = max<size_t>(10, max_iterations);
 }
 
-double Runner::Run()
+double Driver::Run()
 {
   // reset iteration counter and total squared error accumulator
   m_iteration = 0;
-  m_total_sq_error = 0.0;
+  m_acc_error = 0.0;
 
   ConfigureCallbacks();
 
   // start listening for WebSocket connections from the simulator on configured port
-  if (m_hub.listen(m_port))
-  {
-//    cout << "Listening to port " << m_port << endl;
-  }
-  else
+  if (!m_hub.listen(m_port))
   {
     cerr << "Failed to listen to port" << endl;
     return -1.0;
@@ -88,37 +72,20 @@ double Runner::Run()
   // run the WebSocket server until the limit <max_iterations> of control messages has been reached
   m_hub.run();
 
-  cout << "-> Accumulated error^2: " << m_total_sq_error << endl;
+  cout << "-> Accumulated error^2/speed: " << m_acc_error << endl;
 
-  return m_total_sq_error;
+  return m_acc_error;
 }
 
-void Runner::SetOptimizingMode(Mode mode)
+double Driver::operator() (const vector<double>& params)
 {
-  m_mode = mode;
-}
+  // use function arguments as PID coefficients
+  assert(params.size() == 6 && "Number of parameters must be 6.");
+  m_pid_steering.Init(params[0], params[1], params[2]);
+  m_pid_throttle.Init(params[3], params[4], params[5]);
 
-double Runner::operator() (const vector<double>& params)
-{
-  // use function arguments as PID coefficients, depending on configured optimization mode
-  if (m_mode == Mode::Both)
-  {
-    assert(params.size() == 6 && "Number of parameters must be 6 when optimizing both steering and throttle.");
-    m_pid_steering.Init(params[0], params[1], params[2]);
-    m_pid_throttle.Init(params[3], params[4], params[5]);
-  }
-  else if (m_mode == Mode::Steering)
-  {
-    assert(params.size() == 3 && "Number of parameters must be 3 when optimizing steering only.");
-    m_pid_steering.Init(params[0], params[1], params[2]);
-  }
-  else if (m_mode == Mode::Throttle)
-  {
-    assert(params.size() == 3 && "Number of parameters must be 3 when optimizing throttle only.");
-    m_pid_throttle.Init(params[0], params[1], params[2]);
-  }
-
-  // force maximum number of controller iterations to be a finite number
+  // force maximum number of controller iterations to be a finite number, so that ::Run
+  // will eventually return
   if (m_max_iterations == 0)
   {
     m_max_iterations = 500;
@@ -127,7 +94,53 @@ double Runner::operator() (const vector<double>& params)
   return Run();
 }
 
-void Runner::ConfigureCallbacks()
+double Driver::GetSteeringValue() const
+{
+  constexpr double min_value = -1.0;
+  constexpr double max_value = 1.0;
+
+  double pid_error = m_pid_steering.TotalError();
+//  return (max_value - min_value) * (erf(-pid_error) + 1.0) / 2.0 + min_value;
+  double result = -pid_error;
+  result = min(max_value, result);
+  result = max(min_value, result);
+  return result;
+}
+
+double Driver::GetThrottleValue(double steering_angle, double speed) const
+{
+//  return 0.45;
+//
+//  return (steering_angle > 10.0) ? 0.25 : 0.45;
+
+  constexpr double min_value = 0.0;
+  constexpr double max_value = 1.0;
+
+  double pid_error = m_pid_throttle.TotalError();
+//  double result = (max_value - min_value) * exp(-pid_error*pid_error) + min_value;
+
+  double result = max_value - fabs(pid_error);
+  result = min(max_value, result);
+  result = max(min_value, result);
+
+  /*if (steering_angle > 10.0)
+  {
+    result = 0.25;
+  }
+  else */
+  if (speed < 15.0)
+  {
+    result = max(result, 1.0);
+  }
+//  else if (speed < 25.0 && steering_angle < 10.0)
+//  {
+//    result = max(result, 0.4);
+//  }
+
+  return result;
+}
+
+void Driver::ConfigureCallbacks()
 {
   m_hub.onMessage([this](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode /*opCode*/) {
     // "42" at the start of the message means there's a websocket message event.
@@ -154,51 +167,34 @@ void Runner::ConfigureCallbacks()
             ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
             return;
           }
-          else if (m_iteration == 2)
-          {
-            // discard first input of a cycle
-            return;
-          }
 
           // j[1] is the data JSON object
           double cte = stod(j[1]["cte"].get<string>());
           double speed = stod(j[1]["speed"].get<string>());
           double angle = stod(j[1]["steering_angle"].get<string>());
 
+          if (m_iteration < 5)
+          {
+            // ignore the first couple of iterations (some might be data from before the simulator reset)
+            cte = speed = angle = 0.0;
+          }
+
+          // update controller errors
           m_pid_steering.UpdateError(cte);
           m_pid_throttle.UpdateError(cte);
 
-          // Update squared total error for optimization
-          double steering_error = m_pid_steering.TotalError();
-          double throttle_error = m_pid_throttle.TotalError();
-          m_total_sq_error += steering_error * steering_error + throttle_error * throttle_error;
+          // update squared total error for optimization
+          m_acc_error += (cte * cte) / max(1.0, speed);
 
           // Calculate steering value, range is [-1, 1]
-          double steer_value = errorFunction(-steering_error, -1.0, 1.0);
+          double steer_value = GetSteeringValue();
 
           // Calculate throttle value, range is [-1, 1]
-//          double throttle_value = 0.4;
-          double throttle_value = gaussianFunction(throttle_error, -0.25, 1.0);
-          if (speed < 10.0)
-          {
-            throttle_value = max(throttle_value, 0.2);
-          }
-
-           /**
-           * NOTE: Feel free to play around with the throttle and speed.
-           *   Maybe use another PID controller to control the speed!
-           */
+          double throttle_value = GetThrottleValue(fabs(steer_value) * 25.0, speed);
 
           // DEBUG
 //          cout << "CTE: " << cte << ", angle: " << angle << ", speed: " << speed << endl;
 //          cout << "-> steering: " << steer_value << ", throttle: " << throttle_value << endl;
-
-          // When the maximum number of iterations is reached, close the connection.
-          if (m_iteration > m_max_iterations)
-          {
-            m_hub.uWS::Group<uWS::SERVER>::close();
-            return;
-          }
 
           // send steering angle and throttle to the simulator
           json msgJson;
@@ -206,6 +202,13 @@ void Runner::ConfigureCallbacks()
           msgJson["throttle"] = throttle_value;
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+
+          // when the maximum number of iterations is reached, close the connection
+          if (m_iteration > m_max_iterations)
+          {
+            m_hub.uWS::Group<uWS::SERVER>::close();
+            return;
+          }
         }
       }
       else
@@ -216,12 +219,4 @@ void Runner::ConfigureCallbacks()
       }
     }  // end websocket message if
   }); // end h.onMessage
-
-//    m_hub.onConnection([](uWS::WebSocket<uWS::SERVER> /*ws*/, uWS::HttpRequest /*req*/) {
-//      cout << "Connected!!!" << endl;
-//    });
-
-//    m_hub.onDisconnection([](uWS::WebSocket<uWS::SERVER> /*ws*/, int /*code*/, char* /*message*/, size_t /*length*/) {
-//      cout << "Disconnected." << endl;
-//    });
 }
