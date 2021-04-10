@@ -1,3 +1,7 @@
+/**
+ * @author marco.kleesiek@gmail.com
+ */
+
 #include <cstdlib>
 #include <iostream>
 #include "driver.h"
@@ -34,11 +38,11 @@ int main()
   // specify initial parameter values and step sizes for PID arguments
   // index 0, 1, 2: steering Kp, Ki, Kd
   // index 3, 4, 5: throttle Kp, Ki, Kd
-  std::vector<double> pid_params{0.18, 0.0001, 1.5, 1.0, 0.0001, 5.0};
-  std::vector<double> pid_deltas{0.0, 0.0, 0.0, 0.2, 0.0, 1.0};
+  std::vector<double> pid_params{0.18, 0.0001, 1.9, 3.0, 0.0001, 5.0};
+  std::vector<double> pid_deltas{0.01, 0.00005, 0.1, 0.1, 0.00005, 0.1};
 
   // minimize until the sum of deltas as fallen below a certain threshold
-  bool success = optimizer.Minimize(pid_params, pid_deltas, 0.01);
+  bool success = optimizer.Minimize(pid_params, pid_deltas, 0.002);
 
   if (success)
   {

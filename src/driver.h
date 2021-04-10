@@ -1,3 +1,7 @@
+/**
+ * @author marco.kleesiek@gmail.com
+ */
+
 #pragma once
 
 #include "PID.h"

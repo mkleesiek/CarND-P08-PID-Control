@@ -1,3 +1,7 @@
+/**
+ * @author marco.kleesiek@gmail.com
+ */
+
 #pragma once
 
 #include <array>
@@ -67,7 +71,7 @@ inline std::array<double, 3> PID::GetCoefficients() const
 
 inline void PID::UpdateError(double cte)
 {
-  // Update PID errors based on cte
+  // Update PID errors based on the cross track error (cte)
   const double cte_previous = m_p_error;
   m_p_error = cte;
   m_d_error = cte - cte_previous;

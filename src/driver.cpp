@@ -1,3 +1,7 @@
+/**
+ * @author marco.kleesiek@gmail.com
+ */
+
 #include "driver.h"
 #include "json.hpp"
 #include <iostream>
@@ -100,7 +104,10 @@ double Driver::GetSteeringValue() const
   constexpr double max_value = 1.0;
 
   double pid_error = m_pid_steering.TotalError();
+
+  // Sigmoid function
 //  return (max_value - min_value) * (erf(-pid_error) + 1.0) / 2.0 + min_value;
+
   double result = -pid_error;
   result = min(max_value, result);
   result = max(min_value, result);
@@ -109,33 +116,31 @@ double Driver::GetSteeringValue() const
 
 double Driver::GetThrottleValue(double steering_angle, double speed) const
 {
-//  return 0.45;
-//
-//  return (steering_angle > 10.0) ? 0.25 : 0.45;
-
   constexpr double min_value = 0.0;
   constexpr double max_value = 1.0;
 
   double pid_error = m_pid_throttle.TotalError();
-//  double result = (max_value - min_value) * exp(-pid_error*pid_error) + min_value;
+
+  // Exponential function
+//  double result = (max_value - min_value) * exp(-fabs(pid_error)) + min_value;
 
   double result = max_value - fabs(pid_error);
   result = min(max_value, result);
   result = max(min_value, result);
 
-  /*if (steering_angle > 10.0)
-  {
-    result = 0.25;
-  }
-  else */
-  if (speed < 15.0)
+  // override for extreme speeds and steering angles
+  if (speed < 25.0)
   {
     result = max(result, 1.0);
   }
-//  else if (speed < 25.0 && steering_angle < 10.0)
-//  {
-//    result = max(result, 0.4);
-//  }
+  else if (steering_angle > 15.0)
+  {
+    result = min(result, 0.0);
+  }
+  else if (steering_angle > 7.5)
+  {
+    result = min(result, 0.25);
+  }
 
   return result;
 }
