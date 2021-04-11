@@ -7,6 +7,10 @@ In this project of the Udacity [Self-Driving Car NanoDegree](https://www.udacity
 * [Self-Driving Car NanoDegree](https://www.udacity.com/course/self-driving-car-engineer-nanodegree--nd013) course description at Udacity
 * [PID Control Project Starter Code](https://github.com/udacity/CarND-PID-Control-Project) on GitHub
 
+<p align="middle">
+  <img src="readme/screenshot1.jpg" height="200" />
+</p>
+
 ## Prerequisites
 You can find detailed instructions for setting up your system on the starter code [project page](https://github.com/udacity/CarND-PID-Control-Project). It involves installing a Unity-based [simulator tool](https://github.com/udacity/self-driving-car-sim/releases/tag/T3_v1.2) and a C++ WebSocket server library [uWebSockets](https://github.com/uWebSockets/uWebSockets).
 
@@ -34,12 +38,12 @@ For each exchange, the squared cross track error divided by the vehicle speed is
 
 ### PID Tuning
 
-Both steering and throttle control are calculated from the 'total error' of their respective [PID controller](src/PID.h), each of which are composed of a proportional, an integral and a derivative component. Each component is weighted and scaled by a dedicated coefficient (*Kp, Ki* and *Kd*).
+Both steering and throttle control are calculated from the 'total error' of their respective [PID controller](src/PID.h), each of which are composed of a proportional, an integral and a derivative component. Each component is weighted and scaled by a dedicated coefficient: **Kp**, **Ki** and **Kd**.
 
 <p align="middle">
-  <img src="readme/screenshot1.jpg" height="200" />
-  <img src="readme/pid.png" height="200" alt="Courtesy of Udacity"/>
-<p/>
+  <img src="readme/pid.png" height="200" /><br/>
+  <em>Behavior of different PID components,<br/>cross track error vs. iteration (courtesy of Udacity)</em>
+</p>
 
 To get a better feel of each coefficient's influence, I determined a first coefficient configuration by hand, observing the simulator behavior in a trial-and-error fashion.
 
@@ -50,10 +54,9 @@ Increasing the vehicle speed turned out to be more challenging than I had expect
 
 Turning towards throttle control, I proceeded in a similar way: I replaced the hard-coded control value by a response function, which is linear to a PID controller error. I adjusted **Kp** and **Kd** manually, so that the car would travel at higher speeds (between 30 and 45 mph) but still remain within its lane without too much oscillating. In addition, I added some hard-coded rules to react to extreme steering angles and speeds, see [`Driver::GetThrottleValue`](src/driver.cpp).
 
-I then left the fine-tuning to [function minimizer](src/optimizer.h). Following the lecture's 'Twiddle' algorithm, the coefficients are adjusted one at a time. For each new configuration, the simulator is reset and the accumulated cross track error after about 900 iterations (roughly corresponding to one complete lap) is evaluated.
+I then left the fine-tuning to the [function minimizer](src/optimizer.h). Following the lecture's 'Twiddle' algorithm, the coefficients are adjusted one at a time. For each new configuration, the simulator is reset and the accumulated cross track error after about 1000 iterations (roughly corresponding to one complete lap) is evaluated.
 
-The optimized set of coefficients is:
-
+The optimized coefficient values for my implementation, as demonstrated in [this video](readme/recording.mkv), are:
 <table>
     <thead>
         <tr>
@@ -71,12 +74,12 @@ The optimized set of coefficients is:
     </thead>
     <tbody>
         <tr>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
+            <td>0.17</td>
+            <td>0.0001</td>
+            <td>1.8</td>
+            <td>2.5</td>
+            <td>0.0001</td>
+            <td>4.0</td>
         </tr>
     </tbody>
 </table>
